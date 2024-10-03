@@ -1,0 +1,193 @@
+/* General Styles */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header */
+.header {
+  background-color: #1f1f1f;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.timer {
+  width: 150px;
+  height: 30px;
+  /* text-align: center; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 30px;
+  right: 20px;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+  color: #333;
+}
+
+
+
+.nav ul {
+  list-style: none;
+  display: flex;
+  gap: 15px;
+}
+
+.nav ul li {
+  color: white;
+  cursor: pointer;
+}
+
+.user-profile {
+  color: white;
+}
+
+/* Main Content */
+.main-content {
+  display: flex;
+  flex: 1;
+}
+
+/* Left Panel */
+.left-panel {
+  width: 30%;
+  background-color: #ececec;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto; /* Add scroll if content overflows */
+}
+
+.left-panel h2 {
+  font-size: 22px;
+}
+
+.left-panel p,
+.left-panel strong {
+  font-size: 16px; /* Uniform text size */
+}
+
+.left-panel pre {
+  background-color: #1f1f1f;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  white-space: pre-wrap; /* Wrap long lines */
+}
+
+/* Right Panel */
+.right-panel {
+  width: 70%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column; /* Allow stacking of elements */
+}
+
+.sample{
+  background-color: #2e2e2e;
+  width: 200px;
+  font-size: 15px;
+  text-align: center;
+ color: green; 
+}
+
+/* Congrats Section */
+.congrats {
+  margin-top: 20px;
+  text-align: center;
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #c3e6cb;
+  font-size: 18px;
+}
+
+/* Buttons */
+.run-btn, .submit-btn {
+  width: 130px;
+  text-align: center;
+  background-color: #007bff; /* Bootstrap primary color */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  margin-top: 10px;
+  border-radius: 5px; /* Rounded corners */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.btn-div {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+  padding-right: 29px;
+}
+
+.run-btn:hover, .submit-btn:hover {
+  background-color: #0056b3; /* Darken on hover */
+}
+
+/* Output Section */
+.output-section {
+  margin-top: 20px;
+  border-top: 2px solid #1f1f1f; /* Visual separator */
+  padding-top: 10px;
+}
+
+.output-result {
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  background-color: #ececec; /* Light background for results */
+}
+
+.pass {
+  border-color: #28a745; /* Green border for passed tests */
+  background-color: #d4edda; /* Light green background */
+}
+
+.fail {
+  border-color: #dc3545; /* Red border for failed tests */
+  background-color: #f8d7da; /* Light red background */
+}
+
+.output-section pre {
+  background-color: #1f1f1f;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  white-space: pre-wrap; /* Wrap long lines */
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column; /* Stack the panels on smaller screens */
+  }
+
+  .left-panel, .right-panel {
+    width: 100%; /* Full width on mobile */
+  }
+}
