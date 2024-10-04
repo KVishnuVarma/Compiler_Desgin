@@ -21,6 +21,7 @@
     "react-compare-image": "^3.4.0",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.1.4",
+    "react-router-dom": "^6.26.2",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"
   },

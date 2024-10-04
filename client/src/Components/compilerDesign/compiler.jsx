@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from "react";
 import MonacoEditor from "@monaco-editor/react";
-import "./App.css";
+import "./compiler.css"
 
 function EditorComponent() {
   const [code, setCode] = useState("// write your code here");
   const [output, setOutput] = useState([]);
   const [showCongrats, setShowCongrats] = useState(false); // State to show congrats message after all test cases pass
-  const [showSampleTest, setShowSampleTest] = useState(false); // New state to control when to show sample test case
+  const [showSampleTest, setShowSampleTest] = useState(true); // New state to control when to show sample test case
   const [compilerError, setCompilerError] = useState(null); // New state to show compiler error
   const [timer, setTimer] = useState(0); // State to manage the countdown timer
   const [isTimerRunning, setIsTimerRunning] = useState(false); // State to control when the timer is running

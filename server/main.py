@@ -31,7 +31,7 @@ class CodeInput(BaseModel):
 SUPPORTED_LANGUAGES = {
     "python": {
         "extension": "py",
-        "command": ["python"],
+        "command": ["python", "program.py"],  # Adjust this to match your Python path if needed
     },
     "java": {
         "extension": "java",
@@ -39,7 +39,7 @@ SUPPORTED_LANGUAGES = {
     },
     "c": {
         "extension": "c",
-        "command": ["gcc program.c -o program && ./program"],
+        "command": ["gcc program.c -o program.exe && ./program.exe"],
     },
 }
 
@@ -69,64 +69,109 @@ async def execute_code(code_input: CodeInput):
     with open(filename, "w") as f:
         f.write(code_input.code)
 
-    run_command = language_info["command"]
     test_results = []
 
     try:
         # Execute the code for each test case
         for test_case in problem["test_cases"]:
-            # Handle shell commands for languages like Java and C
-            if isinstance(run_command, list) and len(run_command) > 1:
-                command = ' '.join(run_command)  # Concatenate for shell execution
-            else:
-                command = run_command[0]
-
-            process = subprocess.run(
-                command,
-                input=test_case["input"] + "\n",  # Pass input to the code
-                capture_output=True,
-                text=True,
-                timeout=10,
-                shell=True  # Needed for multi-step commands (Java, C)
-            )
-
-            # Capture stdout and compare with expected output
-            result = process.stdout.strip()  # User's code output
+            input_data = test_case["input"] + "\n"  # Prepare input data
             expected_result = test_case["expected_output"]  # Expected output
-            test_passed = result == expected_result
 
-            # Append result for this test case to the results list
-            test_results.append({
-                "input": test_case["input"],
-                "expected_output": expected_result,
-                "user_output": result,
-                "test_passed": test_passed,
-                "error": process.stderr.strip() if process.returncode != 0 else ""
-            })
+            # Define the run command based on the language
+            if code_input.language == "python":
+                run_command = ["python", filename]  # For Python
 
-            # Save result to MongoDB (optional)
-            result_entry = {
-                "problem": problem["title"],
-                "user_code": code_input.code,
-                "user_input": test_case["input"],
-                "expected_output": expected_result,
-                "user_output": result,
-                "test_passed": test_passed,
-            }
-            collection.insert_one(result_entry)
+            elif code_input.language == "c":
+                # Compile C code first
+                compile_command = ["gcc", filename, "-o", "program.exe"]
+                compile_process = subprocess.run(compile_command, capture_output=True, text=True, shell=True)
 
-        # Return the test results to the frontend
-        return {
-            "test_results": test_results
-        }
+                # Check if compilation was successful
+                if compile_process.returncode != 0:
+                    test_results.append({
+                        "input": test_case["input"],
+                        "expected_output": expected_result,
+                        "user_output": "Compilation Error",
+                        "test_passed": False,
+                        "error": compile_process.stderr.strip()
+                    })
+                    continue  # Skip further execution if compilation fails
 
-    except subprocess.TimeoutExpired:
-        return {"error": "Execution timed out"}
+                run_command = ["./program.exe"]  # For C
+
+            elif code_input.language == "java":
+                # Compile Java code first
+                compile_command = ["javac", filename]
+                compile_process = subprocess.run(compile_command, capture_output=True, text=True, shell=True)
+
+                # Check if compilation was successful
+                if compile_process.returncode != 0:
+                    test_results.append({
+                        "input": test_case["input"],
+                        "expected_output": expected_result,
+                        "user_output": "Compilation Error",
+                        "test_passed": False,
+                        "error": compile_process.stderr.strip()
+                    })
+                    continue  # Skip further execution if compilation fails
+
+                run_command = ["java", "program"]  # For Java
+
+            # Run the code
+            try:
+                process = subprocess.run(
+                    run_command,
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,  # Limit execution time
+                    shell=True
+                )
+
+                if process.returncode != 0:
+                    # Capture any runtime errors
+                    error_message = process.stderr.strip()
+                    test_results.append({
+                        "input": test_case["input"],
+                        "expected_output": expected_result,
+                        "user_output": "Runtime Error",
+                        "test_passed": False,
+                        "error": error_message
+                    })
+                else:
+                    # Capture stdout and compare with expected output
+                    result = process.stdout.strip()
+                    test_passed = result == expected_result
+
+                    # Append result for this test case to the results list
+                    test_results.append({
+                        "input": test_case["input"],
+                        "expected_output": expected_result,
+                        "user_output": result,
+                        "test_passed": test_passed,
+                        "error": ""
+                    })
+
+            except subprocess.TimeoutExpired:
+                test_results.append({
+                    "input": test_case["input"],
+                    "expected_output": expected_result,
+                    "user_output": "Timeout",
+                    "test_passed": False,
+                    "error": "Execution timed out"
+                })
 
     except Exception as e:
         return {"error": f"Unexpected error occurred: {str(e)}"}
 
     finally:
-        # Clean up the generated file after execution
+        # Clean up the generated files after execution
         if os.path.exists(filename):
             os.remove(filename)
+        if code_input.language == "c" and os.path.exists("program.exe"):
+            os.remove("program.exe")
+        if code_input.language == "java" and os.path.exists("program.class"):
+            os.remove("program.class")
+
+    # Return the test results to the frontend
+    return {"test_results": test_results}
