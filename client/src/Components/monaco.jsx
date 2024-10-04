@@ -25,7 +25,7 @@
     return (
       <div>
         <MonacoEditor
-          height="500px"
+          height="5000px"
           language="javascript"
           value={code}
           onChange={(newValue) => setCode(newValue)}

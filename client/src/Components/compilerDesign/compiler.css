@@ -60,6 +60,21 @@ body {
   .user-profile {
     color: white;
   }
+
+  .language-selection{
+    width: 500px;
+    height: auto;
+    display: inline-flex;
+    justify-content: start ;
+    align-items: center;
+    position: relative;
+    top: 5px;
+  }
+  .monaco{
+    width: 500px;
+    height: 400px;
+    margin-top: 2%;
+  }
   
   /* Main Content */
   .main-content {
@@ -112,7 +127,7 @@ body {
   
   /* Congrats Section */
   .congrats {
-    margin-top: 20px;
+    margin-top: 10px;
     text-align: center;
     background-color: #d4edda;
     color: #155724;
