@@ -1,33 +1,33 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import subprocess
-import os
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 from pymongo import MongoClient
+from bson.objectid import ObjectId
+import subprocess
 
 app = FastAPI()
 
-# Add CORS middleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Update with your frontend URL
+    allow_origins=["http://localhost:5173"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# MongoDB client setup (replace with your credentials)
-client = MongoClient('mongodb://localhost:27017/')
-db = client["code_database"]
-collection = db["test_results"]
+client = MongoClient("mongodb://localhost:27017")
+db = client["mnc"] 
+questions_collection = db["questions"]
 
-# Define a model for input
+
 class CodeInput(BaseModel):
     language: str
     code: str
-    input_data: str = ""
+    input_data: Optional[str] = ""
 
-# Supported languages with commands
+
 SUPPORTED_LANGUAGES = {
     "python": {
         "extension": "py",
@@ -41,131 +41,71 @@ SUPPORTED_LANGUAGES = {
     "c": {
         "extension": "c",
         "compile_command": ["gcc", "program.c", "-o", "program.exe"],
-        "run_command": ["program.exe"],
+        "run_command": ["./program.exe"],
     },
 }
 
-# Problem and multiple test cases
-problem = {
-    "title": "Sum of Two Numbers",
-    "description": "Write a program that takes two integers and returns their sum.",
-    "test_cases": [
-        {"input": "3 5", "expected_output": "8"},
-        {"input": "-2 4", "expected_output": "2"},
-        {"input": "0 0", "expected_output": "0"},
-        {"input": "1000000 9999999", "expected_output": "10999999"},
-        {"input": "-7 -8", "expected_output": "-15"},
-    ]
-}
+
+def get_test_cases_from_db(question_id):
+    question = questions_collection.find_one({"_id": ObjectId(question_id)})
+    if not question or "testCases" not in question:
+        raise HTTPException(status_code=404, detail="Question or test cases not found")
+    return question["testCases"]
+
+
+def execute_code(language: str, code: str, input_data: str):
+    if language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+
+    language_config = SUPPORTED_LANGUAGES[language]
+    extension = language_config["extension"]
+    source_file = f"program.{extension}"
+
+
+    with open(source_file, "w") as f:
+        f.write(code)
+
+
+    if "compile_command" in language_config:
+        compile_process = subprocess.run(language_config["compile_command"], capture_output=True, text=True)
+        if compile_process.returncode != 0:
+            return {"error": compile_process.stderr.strip()}
+
+
+    process = subprocess.run(
+        language_config["run_command"],
+        input=input_data,
+        capture_output=True,
+        text=True
+    )
+
+    # Return output or error
+    if process.returncode == 0:
+        return {"output": process.stdout.strip()}
+    else:
+        return {"error": process.stderr.strip()}
 
 @app.post("/execute/")
-async def execute_code(code_input: CodeInput):
-    # Check if language is supported
-    if code_input.language not in SUPPORTED_LANGUAGES:
-        raise HTTPException(status_code=400, detail="Language not supported")
-
-    language_info = SUPPORTED_LANGUAGES[code_input.language]
-    filename = f"program.{language_info['extension']}"
-
-    # Write the user's code to a file
-    with open(filename, "w") as f:
-        f.write(code_input.code)
-
-    test_results = []
-
+async def execute_code_endpoint(code_input: CodeInput, question_id: str = Body(...)):
     try:
-        # For compiled languages, compile the code first
-        if code_input.language in ["java", "c"]:
-            compile_command = language_info.get("compile_command")
-            compile_process = subprocess.run(
-                compile_command,
-                capture_output=True,
-                text=True
-            )
-            if compile_process.returncode != 0:
-                # Compilation failed
-                return {"error": compile_process.stderr.strip()}
+        test_cases = get_test_cases_from_db(question_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    results = []
+    for test_case in test_cases:
+        input_data = test_case["input"]
+        expected_output = test_case["expected_output"]
 
-        # Execute the code for each test case
-        for test_case in problem["test_cases"]:
-            input_data = test_case["input"] + "\n"  # Prepare input data
-            expected_result = test_case["expected_output"]  # Expected output
+        result = execute_code(code_input.language, code_input.code, input_data)
 
-            if code_input.language == "python":
-                run_command = ["python", filename]
-            else:
-                run_command = language_info.get("run_command")
+        test_passed = result.get("output") == expected_output
+        results.append({
+            "input": input_data,
+            "expected_output": expected_output,
+            "user_output": result.get("output"),
+            "test_passed": test_passed,
+            "error": result.get("error"),
+        })
 
-            try:
-                process = subprocess.run(
-                    run_command,
-                    input=input_data,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,  # Limit execution time
-                    shell=False  # Use shell=False for security
-                )
-
-
-                if process.returncode !=0:
-                    return {"error":process.stderr.strip()}
-                
-                result = process.stdout.strip()
-
-                if result == "":
-                    result = "No output returned from the execution"
-                test_passed = result == expected_result
-
-                # Append result for this test case to the results list
-                test_results.append({
-                    "input": test_case["input"],
-                    "expected_output": expected_result,
-                    "user_output": result,
-                    "test_passed": test_passed,
-                    "error": process.stderr.strip() if process.returncode != 0 else ""
-                })
-
-                # Save result to MongoDB (optional)
-                result_entry = {
-                    "problem": problem["title"],
-                    "user_code": code_input.code,
-                    "user_input": test_case["input"],
-                    "expected_output": expected_result,
-                    "user_output": result,
-                    "test_passed": test_passed,
-                }
-                collection.insert_one(result_entry)
-
-            except subprocess.TimeoutExpired:
-                test_results.append({
-                    "input": test_case["input"],
-                    "expected_output": expected_result, 
-                    "user_output": "",
-                    "test_passed": False,
-                    "error": "Execution timed out"
-                })
-
-            except Exception as e:
-                test_results.append({
-                    "input": test_case["input"],
-                    "expected_output": expected_result,
-                    "user_output": "",
-                    "test_passed": False,
-                    "error": f"Unexpected error occurred: {str(e)}"
-                })
-
-        # Return the test results to the frontend
-        return {
-            "test_results": test_results
-        }
-
-    finally:
-        # Clean up the generated files after execution
-        if os.path.exists(filename):
-            os.remove(filename)
-        if code_input.language == "c":
-            if os.path.exists("program.exe"):
-                os.remove("program.exe")
-        if code_input.language == "java":
-            if os.path.exists("program.class"):
-                os.remove("program.class")
+    return {"test_results": results}
